@@ -22,7 +22,7 @@ class Silverstreet
     private $status     = false;
 
     public function __construct() {
-        $this->url= 'https://api.silverstreet.com/send.php?username='.$this->username.'&password='.$this->password.'&sender='.$this->sender.'&bodytype=1';
+        $this->url= 'https://api.silverstreet.com/send.php?username='.$this->username.'&password='.$this->password.'&sender='.$this->sender.'&bodytype=4';
     }
 
     public function getErrors(){
@@ -37,7 +37,7 @@ class Silverstreet
         //numaralar
         if(is_array($numbers)){
             foreach($numbers as $key => $number){
-                if(strlen($number) != 9){
+                if(strlen($number) < 9){
                     $this->error = 'Some numbers are too short!'; // Yine de bakılmak istenirse hatayı tutalım
                     return false;
                 }
@@ -52,7 +52,7 @@ class Silverstreet
         }
         else{
             //tek numara
-            if(strlen($numbers) != 9){
+            if(strlen($numbers) < 9){
                 $this->error = 'Some numbers are too short!'; // Yine de bakılmak istenirse hatayı tutalım
                 return false;
             }
@@ -73,12 +73,14 @@ class Silverstreet
             return false;
         }
 
-        if(strlen($message) > 160){
-            $this->error = "Message length must be max 160 char!";
+        $temp = $this->utf8ToUnicode($message);
+        if(count($temp) > 70){
+            $this->error = "Message length must be max 70 char!";
             return false;
         }
 
-        $this->message = $message;
+        $this->message = implode("", $temp);
+
         $this->status = true;
         return true;
     }
@@ -99,5 +101,34 @@ class Silverstreet
             $this->error = $result;
             return false;
         }
+    }
+
+    public function utf8ToUnicode($str) {
+
+        $unicode = array();
+        $values = array();
+        $lookingFor = 1;
+
+        for ($i = 0; $i < strlen($str); $i++) {
+
+            $thisValue = ord($str[$i]);
+
+            if ($thisValue < 128)
+                $unicode[] = str_pad(dechex($thisValue), 4, "0", STR_PAD_LEFT);
+            else {
+                if (count($values) == 0) $lookingFor = ($thisValue < 224) ? 2 : 3;
+                $values[] = $thisValue;
+                if (count($values) == $lookingFor) {
+                    $number = ($lookingFor == 3) ?
+                        (($values[0] % 16) * 4096) + (($values[1] % 64) * 64) + ($values[2] % 64):
+                        (($values[0] % 32) * 64) + ($values[1] % 64);
+                    $number = strtoupper(dechex($number));
+                    $unicode[] = str_pad($number, 4, "0", STR_PAD_LEFT);
+                    $values = array();
+                    $lookingFor = 1;
+                }
+            }
+        }
+        return $unicode;
     }
 }
